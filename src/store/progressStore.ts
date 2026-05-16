@@ -8,6 +8,7 @@ interface ProgressState {
   progress: ProgressMap;
   toggleStep: (repoId: string, stepId: string) => void;
   markAll: (repoId: string, stepIds: string[], value: boolean) => void;
+  cleanupStaleSteps: (repoId: string, validStepIds: string[]) => void;
   completionFor: (repoId: string, total: number) => number; // percent 0-100
   reset: () => void;
 }
@@ -17,15 +18,35 @@ export const useProgressStore = create<ProgressState>((set, get) => ({
 
   toggleStep: (repoId, stepId) => {
     const current = get().progress[repoId] ?? {};
-    const updated = { ...current, [stepId]: !current[stepId] };
+    const updated = { ...current };
+    if (current[stepId]) delete updated[stepId];
+    else updated[stepId] = true;
     const next = { ...get().progress, [repoId]: updated };
+    writeJSON(STORAGE_KEYS.progress, next);
+    set({ progress: next });
+  },
+
+  cleanupStaleSteps: (repoId, validStepIds) => {
+    const valid = new Set(validStepIds);
+    const current = get().progress[repoId] ?? {};
+    const cleaned = Object.fromEntries(
+      Object.entries(current).filter(([id, done]) => valid.has(id) && done),
+    );
+    const currentKeys = Object.keys(current);
+    const cleanedKeys = Object.keys(cleaned);
+    const changed =
+      currentKeys.length !== cleanedKeys.length ||
+      currentKeys.some((id) => current[id] !== cleaned[id]);
+    if (!changed) return;
+
+    const next = { ...get().progress, [repoId]: cleaned };
     writeJSON(STORAGE_KEYS.progress, next);
     set({ progress: next });
   },
 
   markAll: (repoId, stepIds, value) => {
     const updated: Record<string, boolean> = {};
-    stepIds.forEach((id) => (updated[id] = value));
+    if (value) stepIds.forEach((id) => (updated[id] = true));
     const next = { ...get().progress, [repoId]: updated };
     writeJSON(STORAGE_KEYS.progress, next);
     set({ progress: next });

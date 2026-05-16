@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Sparkles } from 'lucide-react';
 import { NAV_ITEMS, APP_NAME } from '@/constants';
+import { useRepoStore } from '@/store/repoStore';
 import { cn } from '@/utils/cn';
 
 interface Props {
@@ -10,6 +11,9 @@ interface Props {
 }
 
 export function Sidebar({ open, onCloseMobile }: Props) {
+  const activeRepoId = useRepoStore((s) => s.activeRepoId);
+  const repoContextRoutes = new Set(['/learning', '/health', '/team']);
+
   return (
     <>
       {/* Mobile backdrop */}
@@ -44,36 +48,40 @@ export function Sidebar({ open, onCloseMobile }: Props) {
         </div>
 
         <nav className="flex flex-col gap-0.5 p-3">
-          {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={to === '/'}
-              onClick={onCloseMobile}
-              className={({ isActive }) =>
-                cn(
-                  'group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition',
-                  isActive
-                    ? 'text-white'
-                    : 'text-ink-600 dark:text-ink-300 hover:bg-ink-100 dark:hover:bg-ink-800',
-                )
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  {isActive && (
-                    <motion.span
-                      layoutId="sidebar-active"
-                      className="absolute inset-0 -z-0 rounded-xl bg-[linear-gradient(120deg,#4f46e5,#6366f1_55%,#06b6d4)] shadow-glow"
-                      transition={{ type: 'spring', bounce: 0.2, duration: 0.5 }}
-                    />
-                  )}
-                  <Icon className="relative z-10 h-4 w-4" />
-                  <span className="relative z-10">{label}</span>
-                </>
-              )}
-            </NavLink>
-          ))}
+          {NAV_ITEMS.map(({ to, label, icon: Icon }) => {
+            const navTo =
+              activeRepoId && repoContextRoutes.has(to) ? `${to}/${activeRepoId}` : to;
+            return (
+              <NavLink
+                key={to}
+                to={navTo}
+                end={to === '/'}
+                onClick={onCloseMobile}
+                className={({ isActive }) =>
+                  cn(
+                    'group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition',
+                    isActive
+                      ? 'text-white'
+                      : 'text-ink-600 dark:text-ink-300 hover:bg-ink-100 dark:hover:bg-ink-800',
+                  )
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    {isActive && (
+                      <motion.span
+                        layoutId="sidebar-active"
+                        className="absolute inset-0 -z-0 rounded-xl bg-[linear-gradient(120deg,#4f46e5,#6366f1_55%,#06b6d4)] shadow-glow"
+                        transition={{ type: 'spring', bounce: 0.2, duration: 0.5 }}
+                      />
+                    )}
+                    <Icon className="relative z-10 h-4 w-4" />
+                    <span className="relative z-10">{label}</span>
+                  </>
+                )}
+              </NavLink>
+            );
+          })}
         </nav>
 
         <div className="absolute bottom-3 left-3 right-3">

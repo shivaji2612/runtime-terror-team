@@ -36,8 +36,12 @@ export default function Chat() {
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isTyping]);
+    if (messages.length === 0 && !isTyping) return;
+    const timer = window.setTimeout(() => {
+      endRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [messages.length, isTyping]);
 
   const submit = async (text?: string) => {
     const content = (text ?? input).trim();

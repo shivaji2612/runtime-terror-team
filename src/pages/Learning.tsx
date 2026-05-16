@@ -23,6 +23,7 @@ export default function Learning() {
   const progress = useProgressStore((s) => s.progress);
   const toggleStep = useProgressStore((s) => s.toggleStep);
   const markAll = useProgressStore((s) => s.markAll);
+  const cleanupStaleSteps = useProgressStore((s) => s.cleanupStaleSteps);
 
   const [selectedId, setSelectedId] = useState<string | undefined>(repoId);
   const selected = selectedId ? repos.find((r) => r.id === selectedId) : undefined;
@@ -39,6 +40,15 @@ export default function Learning() {
   }, [selected, artifact, generateForRepo, setActiveRepo]);
 
   const steps = useMemo(() => artifact?.learningPath ?? [], [artifact]);
+
+  useEffect(() => {
+    if (!selectedId) return;
+    cleanupStaleSteps(
+      selectedId,
+      steps.map((step) => step.id),
+    );
+  }, [selectedId, steps, cleanupStaleSteps]);
+
   const repoProgress = useMemo(
     () => (selectedId ? progress[selectedId] ?? {} : {}),
     [selectedId, progress],

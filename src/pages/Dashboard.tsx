@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -37,11 +37,16 @@ const ICONS: Record<string, typeof Workflow> = {
 export default function Dashboard() {
   const repos = useRepoStore((s) => s.repos);
   const recentIds = useRepoStore((s) => s.recentIds);
+  const cleanupRecents = useRepoStore((s) => s.cleanupRecents);
   const artifacts = useRepoStore((s) => s.artifacts);
   const progress = useProgressStore((s) => s.progress);
   const displayName = usePrefsStore((s) => s.displayName);
   const [query, setQuery] = useState('');
   const navigate = useNavigate();
+
+  useEffect(() => {
+    cleanupRecents();
+  }, [cleanupRecents]);
 
   const filtered = useMemo(() => {
     if (!query.trim()) return repos;
@@ -54,12 +59,13 @@ export default function Dashboard() {
     );
   }, [repos, query]);
 
-  const recent = recentIds
+  const validRecentIds = recentIds.filter((id) => repos.some((r) => r.id === id));
+  const recent = validRecentIds
     .map((id) => repos.find((r) => r.id === id))
     .filter(Boolean) as typeof repos;
 
   const suggested = repos
-    .filter((r) => !recentIds.includes(r.id))
+    .filter((r) => !validRecentIds.includes(r.id))
     .sort((a, b) => b.aiConfidence - a.aiConfidence)
     .slice(0, 3);
 

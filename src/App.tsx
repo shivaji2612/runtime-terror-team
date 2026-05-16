@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { RouteErrorBoundary } from '@/components/ErrorBoundary';
 import { AppShell } from '@/components/layout/AppShell';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 
@@ -30,130 +31,132 @@ function RouteFallback() {
 export default function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route element={<AppShell />}>
-          <Route
-            path="/"
-            element={
-              <Suspense fallback={<RouteFallback />}>
-                <Dashboard />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/generate"
-            element={
-              <Suspense fallback={<RouteFallback />}>
-                <Generate />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/workflow"
-            element={
-              <Suspense fallback={<RouteFallback />}>
-                <Workflow />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/learning"
-            element={
-              <Suspense fallback={<RouteFallback />}>
-                <Learning />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/learning/:repoId"
-            element={
-              <Suspense fallback={<RouteFallback />}>
-                <Learning />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/knowledge"
-            element={
-              <Suspense fallback={<RouteFallback />}>
-                <Knowledge />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/chat"
-            element={
-              <Suspense fallback={<RouteFallback />}>
-                <Chat />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/health"
-            element={
-              <Suspense fallback={<RouteFallback />}>
-                <Health />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/health/:repoId"
-            element={
-              <Suspense fallback={<RouteFallback />}>
-                <Health />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/team"
-            element={
-              <Suspense fallback={<RouteFallback />}>
-                <Team />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/team/:repoId"
-            element={
-              <Suspense fallback={<RouteFallback />}>
-                <Team />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/artifacts"
-            element={
-              <Suspense fallback={<RouteFallback />}>
-                <Artifacts />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/artifacts/:repoId"
-            element={
-              <Suspense fallback={<RouteFallback />}>
-                <ArtifactDetail />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/settings"
-            element={
-              <Suspense fallback={<RouteFallback />}>
-                <Settings />
-              </Suspense>
-            }
-          />
-          <Route
-            path="*"
-            element={
-              <Suspense fallback={<RouteFallback />}>
-                <NotFound />
-              </Suspense>
-            }
-          />
-        </Route>
-      </Routes>
+      <RouteErrorBoundary>
+        <Routes>
+          <Route element={<AppShell />}>
+            <Route
+              path="/"
+              element={
+                <Suspense fallback={<RouteFallback />}>
+                  <Dashboard />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/generate"
+              element={
+                <Suspense fallback={<RouteFallback />}>
+                  <Generate />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/workflow"
+              element={
+                <Suspense fallback={<RouteFallback />}>
+                  <Workflow />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/learning"
+              element={
+                <Suspense fallback={<RouteFallback />}>
+                  <Learning />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/learning/:repoId"
+              element={
+                <Suspense fallback={<RouteFallback />}>
+                  <Learning />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/knowledge"
+              element={
+                <Suspense fallback={<RouteFallback />}>
+                  <Knowledge />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/chat"
+              element={
+                <Suspense fallback={<RouteFallback />}>
+                  <Chat />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/health"
+              element={
+                <Suspense fallback={<RouteFallback />}>
+                  <Health />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/health/:repoId"
+              element={
+                <Suspense fallback={<RouteFallback />}>
+                  <Health />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/team"
+              element={
+                <Suspense fallback={<RouteFallback />}>
+                  <Team />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/team/:repoId"
+              element={
+                <Suspense fallback={<RouteFallback />}>
+                  <Team />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/artifacts"
+              element={
+                <Suspense fallback={<RouteFallback />}>
+                  <Artifacts />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/artifacts/:repoId"
+              element={
+                <Suspense fallback={<RouteFallback />}>
+                  <ArtifactDetail />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <Suspense fallback={<RouteFallback />}>
+                  <Settings />
+                </Suspense>
+              }
+            />
+            <Route
+              path="*"
+              element={
+                <Suspense fallback={<RouteFallback />}>
+                  <NotFound />
+                </Suspense>
+              }
+            />
+          </Route>
+        </Routes>
+      </RouteErrorBoundary>
     </BrowserRouter>
   );
 }

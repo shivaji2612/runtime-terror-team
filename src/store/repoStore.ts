@@ -34,6 +34,7 @@ interface RepoState {
 
   setActiveRepo: (id?: string) => void;
   addRecent: (repoId: string) => void;
+  cleanupRecents: () => void;
 
   /** Manual create (no GitHub URL) — used as a fallback */
   createRepoManual: (input: {
@@ -80,7 +81,16 @@ export const useRepoStore = create<RepoState>((set, get) => ({
   },
 
   addRecent: (repoId) => {
+    if (!get().repos.some((repo) => repo.id === repoId)) return;
     const recent = [repoId, ...get().recentIds.filter((id) => id !== repoId)].slice(0, 6);
+    writeJSON(STORAGE_KEYS.recentRepos, recent);
+    set({ recentIds: recent });
+  },
+
+  cleanupRecents: () => {
+    const repoIds = new Set(get().repos.map((repo) => repo.id));
+    const recent = get().recentIds.filter((id) => repoIds.has(id));
+    if (recent.length === get().recentIds.length) return;
     writeJSON(STORAGE_KEYS.recentRepos, recent);
     set({ recentIds: recent });
   },
@@ -124,7 +134,8 @@ export const useRepoStore = create<RepoState>((set, get) => ({
     let contributors: Awaited<ReturnType<typeof fetchContributors>> = [];
     try {
       contributors = await fetchContributors(parsed.owner, parsed.repo, 8);
-    } catch {
+    } catch (e) {
+      if (e instanceof GitHubError && e.kind === 'rate_limit') throw e;
       contributors = [];
     }
 
@@ -133,7 +144,8 @@ export const useRepoStore = create<RepoState>((set, get) => ({
     try {
       const tree = await fetchTree(parsed.owner, parsed.repo, ghRepo.default_branch);
       treeItems = tree.tree;
-    } catch {
+    } catch (e) {
+      if (e instanceof GitHubError && e.kind === 'rate_limit') throw e;
       treeItems = [];
     }
 
@@ -205,7 +217,8 @@ export const useRepoStore = create<RepoState>((set, get) => ({
 async function safeRead<T>(fn: () => Promise<T | null>): Promise<T | null> {
   try {
     return await fn();
-  } catch {
+  } catch (e) {
+    if (e instanceof GitHubError && e.kind === 'rate_limit') throw e;
     return null;
   }
 }

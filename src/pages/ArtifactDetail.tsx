@@ -68,6 +68,7 @@ export default function ArtifactDetail() {
   const setActiveRepo = useRepoStore((s) => s.setActiveRepo);
   const progressMap = useProgressStore((s) => s.progress);
   const toggleStep = useProgressStore((s) => s.toggleStep);
+  const cleanupStaleSteps = useProgressStore((s) => s.cleanupStaleSteps);
 
   const [tab, setTab] = useState('overview');
   const [askOpen, setAskOpen] = useState(false);
@@ -129,15 +130,27 @@ export default function ArtifactDetail() {
   };
 
   const learning = useMemo(() => artifact?.learningPath ?? [], [artifact]);
+
+  useEffect(() => {
+    if (!repoId) return;
+    cleanupStaleSteps(
+      repoId,
+      learning.map((step) => step.id),
+    );
+  }, [repoId, learning, cleanupStaleSteps]);
+
   const repoProgress = useMemo(
     () => (repoId ? progressMap[repoId] ?? {} : {}),
     [repoId, progressMap],
   );
+  const doneLearningCount = useMemo(
+    () => learning.filter((l) => repoProgress[l.id]).length,
+    [learning, repoProgress],
+  );
   const completion = useMemo(() => {
     if (learning.length === 0) return 0;
-    const done = learning.filter((l) => repoProgress[l.id]).length;
-    return Math.round((done / learning.length) * 100);
-  }, [learning, repoProgress]);
+    return Math.round((doneLearningCount / learning.length) * 100);
+  }, [learning, doneLearningCount]);
 
   const sanitizeFileName = (value: string) => {
     const safe = value
@@ -298,7 +311,7 @@ export default function ArtifactDetail() {
           <div className="rounded-2xl border border-ink-200/70 dark:border-ink-700 bg-white/80 p-4 dark:bg-ink-900/60">
             <div className="font-display text-sm font-semibold">Onboarding progress</div>
             <p className="mt-1 text-xs text-ink-500">
-              {Object.values(repoProgress).filter(Boolean).length} of {learning.length} steps done
+              {doneLearningCount} of {learning.length} steps done
             </p>
             <ProgressBar value={completion} showLabel className="mt-3" />
             <div className="mt-4 flex flex-wrap gap-2">

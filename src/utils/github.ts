@@ -11,6 +11,11 @@ import { readJSON, writeJSON } from '@/utils/storage';
 const API_BASE = 'https://api.github.com';
 const CACHE_PREFIX = 'roai-gh-cache:';
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h
+const MAX_RETRIES = 2;
+const MAX_RETRY_DELAY_MS = 3000;
+const QUEUE_GAP_MS = 120;
+
+let requestQueue: Promise<void> = Promise.resolve();
 
 export interface GitHubRepo {
   id: number;
@@ -145,6 +150,11 @@ function readCache<T>(path: string): T | null {
   return entry.value;
 }
 
+function readAnyCache<T>(path: string): T | null {
+  const entry = readJSON<CacheEntry<T> | null>(cacheKey(path), null);
+  return entry?.value ?? null;
+}
+
 function writeCache<T>(path: string, value: T) {
   writeJSON<CacheEntry<T>>(cacheKey(path), { ts: Date.now(), value });
 }
@@ -155,32 +165,113 @@ async function ghFetch<T>(path: string, opts?: { fresh?: boolean }): Promise<T> 
     if (cached) return cached;
   }
 
-  let res: Response;
+  return enqueueGitHubRequest(async () => {
+    const stale = opts?.fresh ? null : readAnyCache<T>(path);
+    const res = await fetchWithRetry(path);
+
+    if (res.status === 404) {
+      throw new GitHubError('Repository not found on GitHub', 404, 'not_found');
+    }
+    if (res.status === 403 || res.status === 429) {
+      if (stale) return stale;
+      throw new GitHubError(rateLimitMessage(res), res.status, 'rate_limit');
+    }
+    if (!res.ok) {
+      throw new GitHubError(`GitHub returned ${res.status}`, res.status, 'unknown');
+    }
+
+    const data = (await res.json()) as T;
+    writeCache(path, data);
+    return data;
+  });
+}
+
+function enqueueGitHubRequest<T>(task: () => Promise<T>): Promise<T> {
+  const run = requestQueue.then(async () => {
+    await delay(QUEUE_GAP_MS);
+    return task();
+  });
+  requestQueue = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
+async function fetchWithRetry(path: string, attempt = 0): Promise<Response> {
   try {
-    res = await fetch(`${API_BASE}${path}`, {
+    const res = await fetch(`${API_BASE}${path}`, {
       headers: { Accept: 'application/vnd.github+json' },
     });
+
+    if (attempt < MAX_RETRIES && shouldRetry(res)) {
+      const waitMs = retryDelayFor(res, attempt);
+      if (waitMs !== null) {
+        await delay(waitMs);
+        return fetchWithRetry(path, attempt + 1);
+      }
+    }
+
+    return res;
   } catch {
+    if (attempt < MAX_RETRIES) {
+      await delay(backoffDelay(attempt));
+      return fetchWithRetry(path, attempt + 1);
+    }
     throw new GitHubError('Network error reaching GitHub', 0, 'network');
   }
+}
 
-  if (res.status === 404) {
-    throw new GitHubError('Repository not found on GitHub', 404, 'not_found');
+function shouldRetry(res: Response): boolean {
+  return (
+    res.status >= 500 ||
+    res.status === 429 ||
+    (res.status === 403 &&
+      (Boolean(res.headers.get('retry-after')) ||
+        res.headers.get('x-ratelimit-remaining') === '0'))
+  );
+}
+
+function retryDelayFor(res: Response, attempt: number): number | null {
+  const retryAfter = retryAfterFrom(res);
+  if (retryAfter !== null) {
+    return retryAfter <= MAX_RETRY_DELAY_MS ? retryAfter : null;
   }
-  if (res.status === 403 || res.status === 429) {
-    throw new GitHubError(
-      'GitHub rate limit reached (60 requests/hour for unauthenticated users). Try again later or use the seeded repos.',
-      res.status,
-      'rate_limit',
-    );
-  }
-  if (!res.ok) {
-    throw new GitHubError(`GitHub returned ${res.status}`, res.status, 'unknown');
+  return backoffDelay(attempt);
+}
+
+function backoffDelay(attempt: number): number {
+  return Math.min(500 * 2 ** attempt, MAX_RETRY_DELAY_MS);
+}
+
+function retryAfterFrom(res: Response): number | null {
+  const retryAfter = res.headers.get('retry-after');
+  if (retryAfter) {
+    const seconds = Number(retryAfter);
+    if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
+
+    const dateMs = Date.parse(retryAfter);
+    if (Number.isFinite(dateMs)) return Math.max(0, dateMs - Date.now());
   }
 
-  const data = (await res.json()) as T;
-  writeCache(path, data);
-  return data;
+  const reset = Number(res.headers.get('x-ratelimit-reset'));
+  if (Number.isFinite(reset)) return Math.max(0, reset * 1000 - Date.now());
+
+  return null;
+}
+
+function rateLimitMessage(res: Response): string {
+  const base = 'GitHub API rate limit reached (60 requests/hour for unauthenticated users).';
+  const retryAfter = retryAfterFrom(res);
+  if (retryAfter && retryAfter > 0) {
+    const resetAt = new Date(Date.now() + retryAfter).toLocaleTimeString();
+    return `${base} Try again after ${resetAt} or use the seeded repos.`;
+  }
+  return `${base} Try again later or use the seeded repos.`;
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /* ----------------------- Endpoints ----------------------- */
